@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>회원통합 모니터링 대시보드</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body {
+            background-color: #f8f9fa;
+        }
+        .metric-card {
+            transition: transform 0.2s;
+            border: none;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .metric-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+        }
+        .metric-value {
+            font-size: 2rem;
+            font-weight: bold;
+        }
+        .metric-label {
+            color: #6c757d;
+            font-size: 0.9rem;
+        }
+        .date-picker {
+            max-width: 200px;
+        }
+        .loading {
+            opacity: 0.6;
+            pointer-events: none;
+        }
+        .chart-container {
+            height: 400px;
+            margin-top: 2rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container-fluid">
+        <div class="row">
+            <div class="col-12">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h1 class="mb-0">
+                        <i class="fas fa-chart-line text-primary"></i>
+                        회원통합 모니터링 대시보드
+                    </h1>
+                    <div class="d-flex gap-2">
+                        <input type="date" id="startDate" class="form-control date-picker">
+                        <input type="date" id="endDate" class="form-control date-picker">
+                        <button class="btn btn-primary" onclick="loadMetrics()">
+                            <i class="fas fa-search"></i> 조회
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row mb-4">
+            <div class="col-md-2">
+                <div class="card metric-card bg-primary text-white">
+                    <div class="card-body text-center">
+                        <div class="metric-value" id="totalUsers">-</div>
+                        <div class="metric-label">통합 신규+전환 회원수</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-2">
+                <div class="card metric-card bg-success text-white">
+                    <div class="card-body text-center">
+                        <div class="metric-value" id="newUsers">-</div>
+                        <div class="metric-label">통합 신규 회원수</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-2">
+                <div class="card metric-card bg-info text-white">
+                    <div class="card-body text-center">
+                        <div class="metric-value" id="convertedUsers">-</div>
+                        <div class="metric-label">통합 전환 회원수</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-2">
+                <div class="card metric-card bg-warning text-white">
+                    <div class="card-body text-center">
+                        <div class="metric-value" id="physicalCards">-</div>
+                        <div class="metric-label">실물 카드 신청수</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-2">
+                <div class="card metric-card bg-secondary text-white">
+                    <div class="card-body text-center">
+                        <div class="metric-value" id="onlineCards">-</div>
+                        <div class="metric-label">온라인 카드 자동발급</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-2">
+                <div class="card metric-card bg-dark text-white">
+                    <div class="card-body text-center">
+                        <div class="metric-value" id="todayDate">-</div>
+                        <div class="metric-label">오늘 날짜</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">
+                            <i class="fas fa-calendar-alt"></i>
+                            일별 데이터 조회
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row mb-3">
+                            <div class="col-md-3">
+                                <label for="dailyDate" class="form-label">날짜 선택</label>
+                                <input type="date" id="dailyDate" class="form-control">
+                            </div>
+                            <div class="col-md-3 d-flex align-items-end">
+                                <button class="btn btn-outline-primary" onclick="loadDailyData()">
+                                    <i class="fas fa-calendar-day"></i> 일별 조회
+                                </button>
+                            </div>
+                        </div>
+                        <div id="dailyDataResult"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">
+                            <i class="fas fa-table"></i>
+                            일자별 데이터 표 조회
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row mb-3">
+                            <div class="col-md-3">
+                                <label for="tableStartDate" class="form-label">시작일</label>
+                                <input type="date" id="tableStartDate" class="form-control">
+                            </div>
+                            <div class="col-md-3">
+                                <label for="tableEndDate" class="form-label">종료일</label>
+                                <input type="date" id="tableEndDate" class="form-control">
+                            </div>
+                            <div class="col-md-3 d-flex align-items-end">
+                                <button class="btn btn-success" onclick="loadTableData()">
+                                    <i class="fas fa-table"></i> 표 조회
+                                </button>
+                            </div>
+                            <div class="col-md-3 d-flex align-items-end">
+                                <button class="btn btn-outline-secondary" onclick="exportToCSV()">
+                                    <i class="fas fa-download"></i> CSV 다운로드
+                                </button>
+                            </div>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table table-striped table-hover" id="dataTable">
+                                <thead class="table-dark">
+                                    <tr>
+                                        <th>날짜</th>
+                                        <th>통합 신규+전환</th>
+                                        <th>통합 신규</th>
+                                        <th>통합 전환</th>
+                                        <th>실물 카드 신청</th>
+                                        <th>온라인 카드 자동발급</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tableBody">
+                                    <tr>
+                                        <td colspan="6" class="text-center text-muted">
+                                            날짜를 선택하고 조회 버튼을 클릭하세요
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">
+                            <i class="fas fa-info-circle"></i>
+                            API 엔드포인트 정보
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <h6>일별 데이터 조회</h6>
+                                <code>GET /api/monitoring/daily/{date}</code>
+                                <br><small class="text-muted">예: /api/monitoring/daily/2025-07-28</small>
+                            </div>
+                            <div class="col-md-6">
+                                <h6>기간별 모든 지표 조회</h6>
+                                <code>GET /api/monitoring/all-metrics?startDate={start}&endDate={end}</code>
+                                <br><small class="text-muted">예: /api/monitoring/all-metrics?startDate=2025-07-28&endDate=2025-07-28</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // 페이지 로드 시 오늘 날짜 설정
+        document.addEventListener('DOMContentLoaded', function() {
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('startDate').value = today;
+            document.getElementById('endDate').value = today;
+            document.getElementById('dailyDate').value = today;
+            document.getElementById('tableStartDate').value = today;
+            document.getElementById('tableEndDate').value = today;
+            document.getElementById('todayDate').textContent = today;
+            
+            // 초기 데이터 로드
+            loadMetrics();
+        });
+
+        // 기간별 지표 조회
+        async function loadMetrics() {
+            const startDate = document.getElementById('startDate').value;
+            const endDate = document.getElementById('endDate').value;
+            
+            if (!startDate || !endDate) {
+                alert('시작일과 종료일을 선택해주세요.');
+                return;
+            }
+
+            setLoading(true);
+
+            try {
+                const response = await fetch(`/api/monitoring/all-metrics?startDate=${startDate}&endDate=${endDate}`);
+                const data = await response.json();
+
+                if (response.ok) {
+                    updateMetrics(data.metrics);
+                } else {
+                    alert('데이터 조회 중 오류가 발생했습니다.');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('데이터 조회 중 오류가 발생했습니다.');
+            } finally {
+                setLoading(false);
+            }
+        }
+
+        // 일별 데이터 조회
+        async function loadDailyData() {
+            const date = document.getElementById('dailyDate').value;
+            
+            if (!date) {
+                alert('날짜를 선택해주세요.');
+                return;
+            }
+
+            setLoading(true);
+
+            try {
+                const response = await fetch(`/api/monitoring/daily/${date}`);
+                const data = await response.json();
+
+                if (response.ok) {
+                    displayDailyData(data);
+                } else {
+                    alert('데이터 조회 중 오류가 발생했습니다.');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('데이터 조회 중 오류가 발생했습니다.');
+            } finally {
+                setLoading(false);
+            }
+        }
+
+        // 지표 업데이트
+        function updateMetrics(metrics) {
+            document.getElementById('totalUsers').textContent = formatNumber(metrics.total_integrated_users);
+            document.getElementById('newUsers').textContent = formatNumber(metrics.new_integrated_users);
+            document.getElementById('convertedUsers').textContent = formatNumber(metrics.converted_integrated_users);
+            document.getElementById('physicalCards').textContent = formatNumber(metrics.physical_card_requests);
+            document.getElementById('onlineCards').textContent = formatNumber(metrics.online_auto_issued_cards);
+        }
+
+        // 일별 데이터 표시
+        function displayDailyData(data) {
+            const resultDiv = document.getElementById('dailyDataResult');
+            
+            const html = `
+                <div class="row">
+                    <div class="col-12">
+                        <h6>${data.date} 일별 데이터</h6>
+                        <div class="table-responsive">
+                            <table class="table table-striped">
+                                <thead>
+                                    <tr>
+                                        <th>지표</th>
+                                        <th>값</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td>통합 신규+전환 회원수</td>
+                                        <td><strong>${formatNumber(data.data.total_integrated_users)}</strong></td>
+                                    </tr>
+                                    <tr>
+                                        <td>통합 신규 회원수</td>
+                                        <td><strong>${formatNumber(data.data.new_integrated_users)}</strong></td>
+                                    </tr>
+                                    <tr>
+                                        <td>통합 전환 회원수</td>
+                                        <td><strong>${formatNumber(data.data.converted_integrated_users)}</strong></td>
+                                    </tr>
+                                    <tr>
+                                        <td>실물 카드 신청수</td>
+                                        <td><strong>${formatNumber(data.data.physical_card_requests)}</strong></td>
+                                    </tr>
+                                    <tr>
+                                        <td>온라인 카드 자동발급</td>
+                                        <td><strong>${formatNumber(data.data.online_auto_issued_cards)}</strong></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            resultDiv.innerHTML = html;
+        }
+
+        // 로딩 상태 설정
+        function setLoading(loading) {
+            const cards = document.querySelectorAll('.metric-card');
+            cards.forEach(card => {
+                if (loading) {
+                    card.classList.add('loading');
+                } else {
+                    card.classList.remove('loading');
+                }
+            });
+        }
+
+        // 숫자 포맷팅
+        function formatNumber(num) {
+            return new Intl.NumberFormat('ko-KR').format(num);
+        }
+
+        // 표 데이터 조회
+        async function loadTableData() {
+            const startDate = document.getElementById('tableStartDate').value;
+            const endDate = document.getElementById('tableEndDate').value;
+            
+            if (!startDate || !endDate) {
+                alert('시작일과 종료일을 선택해주세요.');
+                return;
+            }
+
+            if (new Date(startDate) > new Date(endDate)) {
+                alert('시작일은 종료일보다 이전이어야 합니다.');
+                return;
+            }
+
+            setLoading(true);
+
+            try {
+                const tableData = [];
+                const currentDate = new Date(startDate);
+                const endDateTime = new Date(endDate);
+
+                while (currentDate <= endDateTime) {
+                    const dateStr = currentDate.toISOString().split('T')[0];
+                    
+                    try {
+                        const response = await fetch(`/api/monitoring/daily/${dateStr}`);
+                        const data = await response.json();
+
+                        if (response.ok) {
+                            tableData.push({
+                                date: dateStr,
+                                ...data.data
+                            });
+                        } else {
+                            tableData.push({
+                                date: dateStr,
+                                total_integrated_users: 0,
+                                new_integrated_users: 0,
+                                converted_integrated_users: 0,
+                                physical_card_requests: 0,
+                                online_auto_issued_cards: 0
+                            });
+                        }
+                    } catch (error) {
+                        console.error(`Error fetching data for ${dateStr}:`, error);
+                        tableData.push({
+                            date: dateStr,
+                            total_integrated_users: 0,
+                            new_integrated_users: 0,
+                            converted_integrated_users: 0,
+                            physical_card_requests: 0,
+                            online_auto_issued_cards: 0
+                        });
+                    }
+
+                    currentDate.setDate(currentDate.getDate() + 1);
+                }
+
+                displayTableData(tableData);
+            } catch (error) {
+                console.error('Error:', error);
+                alert('데이터 조회 중 오류가 발생했습니다.');
+            } finally {
+                setLoading(false);
+            }
+        }
+
+        // 표 데이터 표시
+        function displayTableData(data) {
+            const tableBody = document.getElementById('tableBody');
+            
+            if (data.length === 0) {
+                tableBody.innerHTML = `
+                    <tr>
+                        <td colspan="6" class="text-center text-muted">
+                            조회된 데이터가 없습니다
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            let html = '';
+            data.forEach(item => {
+                html += `
+                    <tr>
+                        <td><strong>${item.date}</strong></td>
+                        <td class="text-end">${formatNumber(item.total_integrated_users)}</td>
+                        <td class="text-end">${formatNumber(item.new_integrated_users)}</td>
+                        <td class="text-end">${formatNumber(item.converted_integrated_users)}</td>
+                        <td class="text-end">${formatNumber(item.physical_card_requests)}</td>
+                        <td class="text-end">${formatNumber(item.online_auto_issued_cards)}</td>
+                    </tr>
+                `;
+            });
+
+            tableBody.innerHTML = html;
+        }
+
+        // CSV 다운로드
+        function exportToCSV() {
+            const tableBody = document.getElementById('tableBody');
+            const rows = tableBody.querySelectorAll('tr');
+            
+            if (rows.length === 0 || rows[0].querySelector('td[colspan]')) {
+                alert('다운로드할 데이터가 없습니다. 먼저 데이터를 조회해주세요.');
+                return;
+            }
+
+            let csv = '날짜,통합 신규+전환,통합 신규,통합 전환,실물 카드 신청,온라인 카드 자동발급\n';
+            
+            rows.forEach(row => {
+                const cells = row.querySelectorAll('td');
+                if (cells.length === 6) {
+                    const rowData = Array.from(cells).map(cell => {
+                        const text = cell.textContent.trim();
+                        return `"${text}"`;
+                    });
+                    csv += rowData.join(',') + '\n';
+                }
+            });
+
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            const url = URL.createObjectURL(blob);
+            link.setAttribute('href', url);
+            link.setAttribute('download', `회원통합_모니터링_${new Date().toISOString().split('T')[0]}.csv`);
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+    </script>
+</body>
+</html> 
