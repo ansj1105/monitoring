@@ -12,7 +12,7 @@ yarn-error.log*
 .env.production.local
 
 # Secrets (service account keys etc.)
-./config/*.json
+config/*.json
 config/*.pem
 config/*.p12
 
