@@ -13,7 +13,10 @@ app.use(express.static('public'));
 
 // 라우트 설정
 const monitoringRoutes = require('./routes/monitoring');
+const sheetsRoutes = require('./routes/sheets');
+
 app.use('/api/monitoring', monitoringRoutes);
+app.use('/api/sheets', sheetsRoutes);
 
 // 메인 페이지
 app.get('/', (req, res) => {

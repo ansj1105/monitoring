@@ -201,6 +201,83 @@
                 <div class="card">
                     <div class="card-header">
                         <h5 class="mb-0">
+                            <i class="fas fa-cloud-upload-alt"></i>
+                            Google Sheets 업데이트
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row mb-3">
+                            <div class="col-md-3">
+                                <label for="sheetsStartDate" class="form-label">시작일</label>
+                                <input type="date" id="sheetsStartDate" class="form-control">
+                            </div>
+                            <div class="col-md-3">
+                                <label for="sheetsEndDate" class="form-label">종료일</label>
+                                <input type="date" id="sheetsEndDate" class="form-control">
+                            </div>
+                            <div class="col-md-6 d-flex align-items-end gap-2">
+                                <button class="btn btn-success" onclick="updateSheetsData()">
+                                    <i class="fas fa-upload"></i> 데이터 업로드
+                                </button>
+                                <button class="btn btn-info" onclick="setupSheetsHeaders()">
+                                    <i class="fas fa-table"></i> 헤더 설정
+                                </button>
+                                <button class="btn btn-warning" onclick="toggleAutoUpdate()">
+                                    <i class="fas fa-clock"></i> 자동 업데이트
+                                </button>
+                            </div>
+                        </div>
+                        <div id="sheetsResult"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">
+                            <i class="fas fa-chart-bar"></i>
+                            Dataset2 시트 업데이트 (마일리지 통계)
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row mb-3">
+                            <div class="col-md-3">
+                                <label for="dataset2StartDate" class="form-label">시작일</label>
+                                <input type="date" id="dataset2StartDate" class="form-control">
+                            </div>
+                            <div class="col-md-3">
+                                <label for="dataset2EndDate" class="form-label">종료일</label>
+                                <input type="date" id="dataset2EndDate" class="form-control">
+                            </div>
+                            <div class="col-md-6 d-flex align-items-end gap-2">
+                                <button class="btn btn-success" onclick="updateDataset2Data()">
+                                    <i class="fas fa-upload"></i> Dataset2 업로드
+                                </button>
+                                <button class="btn btn-info" onclick="setupDataset2Headers()">
+                                    <i class="fas fa-table"></i> Dataset2 헤더 설정
+                                </button>
+                            </div>
+                        </div>
+                        <div id="dataset2Result"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+                        </div>
+                        <div id="sheetsResult"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">
                             <i class="fas fa-info-circle"></i>
                             API 엔드포인트 정보
                         </h5>
@@ -234,6 +311,8 @@
             document.getElementById('dailyDate').value = today;
             document.getElementById('tableStartDate').value = today;
             document.getElementById('tableEndDate').value = today;
+            document.getElementById('dataset2StartDate').value = today;
+            document.getElementById('dataset2EndDate').value = today;
             document.getElementById('todayDate').textContent = today;
             
             // 초기 데이터 로드
@@ -368,6 +447,154 @@
         // 숫자 포맷팅
         function formatNumber(num) {
             return new Intl.NumberFormat('ko-KR').format(num);
+        }
+
+        // Google Sheets 데이터 업데이트
+        async function updateSheetsData() {
+            const startDate = document.getElementById('sheetsStartDate').value;
+            const endDate = document.getElementById('sheetsEndDate').value;
+            
+            if (!startDate || !endDate) {
+                alert('시작일과 종료일을 선택해주세요.');
+                return;
+            }
+
+            if (new Date(startDate) > new Date(endDate)) {
+                alert('시작일은 종료일보다 이전이어야 합니다.');
+                return;
+            }
+
+            const resultDiv = document.getElementById('sheetsResult');
+            resultDiv.innerHTML = '<div class="alert alert-info">Google Sheets 업데이트 중...</div>';
+
+            try {
+                const response = await fetch('/api/sheets/update-period', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ startDate, endDate })
+                });
+                const data = await response.json();
+
+                if (response.ok) {
+                    resultDiv.innerHTML = `<div class="alert alert-success">${data.message}</div>`;
+                } else {
+                    resultDiv.innerHTML = `<div class="alert alert-danger">오류: ${data.error}</div>`;
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                resultDiv.innerHTML = '<div class="alert alert-danger">Google Sheets 업데이트 중 오류가 발생했습니다.</div>';
+            }
+        }
+
+        // Google Sheets 헤더 설정
+        async function setupSheetsHeaders() {
+            const resultDiv = document.getElementById('sheetsResult');
+            resultDiv.innerHTML = '<div class="alert alert-info">Google Sheets 헤더 설정 중...</div>';
+
+            try {
+                const response = await fetch('/api/sheets/setup-headers', {
+                    method: 'POST'
+                });
+                const data = await response.json();
+
+                if (response.ok) {
+                    resultDiv.innerHTML = `<div class="alert alert-success">${data.message}</div>`;
+                } else {
+                    resultDiv.innerHTML = `<div class="alert alert-danger">오류: ${data.error}</div>`;
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                resultDiv.innerHTML = '<div class="alert alert-danger">헤더 설정 중 오류가 발생했습니다.</div>';
+            }
+        }
+
+        // 자동 업데이트 상태
+        let isAutoUpdateRunning = false;
+
+        // 자동 업데이트 토글
+        async function toggleAutoUpdate() {
+            const resultDiv = document.getElementById('sheetsResult');
+            const endpoint = isAutoUpdateRunning ? '/api/sheets/stop-auto-update' : '/api/sheets/start-auto-update';
+
+            try {
+                const response = await fetch(endpoint, {
+                    method: 'POST'
+                });
+                const data = await response.json();
+
+                if (response.ok) {
+                    isAutoUpdateRunning = !isAutoUpdateRunning;
+                    resultDiv.innerHTML = `<div class="alert alert-success">${data.message}</div>`;
+                } else {
+                    resultDiv.innerHTML = `<div class="alert alert-danger">오류: ${data.error}</div>`;
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                resultDiv.innerHTML = '<div class="alert alert-danger">자동 업데이트 설정 중 오류가 발생했습니다.</div>';
+            }
+        }
+
+        // Dataset2 데이터 업로드
+        async function updateDataset2Data() {
+            const startDate = document.getElementById('dataset2StartDate').value;
+            const endDate = document.getElementById('dataset2EndDate').value;
+            
+            if (!startDate || !endDate) {
+                alert('시작일과 종료일을 선택해주세요.');
+                return;
+            }
+
+            if (new Date(startDate) > new Date(endDate)) {
+                alert('시작일은 종료일보다 이전이어야 합니다.');
+                return;
+            }
+
+            const resultDiv = document.getElementById('dataset2Result');
+            resultDiv.innerHTML = '<div class="alert alert-info">Dataset2 업로드 중...</div>';
+
+            try {
+                const response = await fetch('/api/sheets/update-period', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ startDate, endDate })
+                });
+                const data = await response.json();
+
+                if (response.ok) {
+                    resultDiv.innerHTML = `<div class="alert alert-success">${data.message}</div>`;
+                } else {
+                    resultDiv.innerHTML = `<div class="alert alert-danger">오류: ${data.error}</div>`;
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                resultDiv.innerHTML = '<div class="alert alert-danger">Dataset2 업로드 중 오류가 발생했습니다.</div>';
+            }
+        }
+
+        // Dataset2 헤더 설정
+        async function setupDataset2Headers() {
+            const resultDiv = document.getElementById('dataset2Result');
+            resultDiv.innerHTML = '<div class="alert alert-info">Dataset2 헤더 설정 중...</div>';
+
+            try {
+                const response = await fetch('/api/sheets/setup-dataset2-headers', {
+                    method: 'POST'
+                });
+                const data = await response.json();
+
+                if (response.ok) {
+                    resultDiv.innerHTML = `<div class="alert alert-success">${data.message}</div>`;
+                } else {
+                    resultDiv.innerHTML = `<div class="alert alert-danger">오류: ${data.error}</div>`;
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                resultDiv.innerHTML = '<div class="alert alert-danger">Dataset2 헤더 설정 중 오류가 발생했습니다.</div>';
+            }
         }
 
         // 표 데이터 조회
