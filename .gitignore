@@ -11,6 +11,11 @@ yarn-error.log*
 .env.test.local
 .env.production.local
 
+# Secrets (service account keys etc.)
+config/*.json
+config/*.pem
+config/*.p12
+
 # Logs
 logs
 *.log
