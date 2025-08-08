@@ -24,7 +24,7 @@
             font-weight: bold;
         }
         .metric-label {
-            color: #6c757d;
+            color: #ffffff;
             font-size: 0.9rem;
         }
         .date-picker {
@@ -193,6 +193,8 @@
                 </div>
             </div>
         </div>
+
+
 
         <div class="row mt-4">
             <div class="col-12">
@@ -456,11 +458,11 @@
                 html += `
                     <tr>
                         <td><strong>${item.date}</strong></td>
-                        <td class="text-end">${formatNumber(item.total_integrated_users)}</td>
-                        <td class="text-end">${formatNumber(item.new_integrated_users)}</td>
-                        <td class="text-end">${formatNumber(item.converted_integrated_users)}</td>
-                        <td class="text-end">${formatNumber(item.physical_card_requests)}</td>
-                        <td class="text-end">${formatNumber(item.online_auto_issued_cards)}</td>
+                        <td>${formatNumber(item.total_integrated_users)}</td>
+                        <td>${formatNumber(item.new_integrated_users)}</td>
+                        <td>${formatNumber(item.converted_integrated_users)}</td>
+                        <td>${formatNumber(item.physical_card_requests)}</td>
+                        <td>${formatNumber(item.online_auto_issued_cards)}</td>
                     </tr>
                 `;
             });

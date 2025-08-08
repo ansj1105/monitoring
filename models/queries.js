@@ -13,8 +13,8 @@ function convertUTCToKST(utcDate) {
 const queries = {
   // 통합 신규 + 전환 회원수
   getTotalIntegratedUsers: (startDate, endDate) => {
-    const startUTC = convertKSTToUTC(startDate);
-    const endUTC = convertKSTToUTC(endDate);
+    const startKST = `${startDate} 00:00:00`;
+    const endKST = `${endDate} 23:59:59`;
     
     return {
       text: `
@@ -26,14 +26,14 @@ const queries = {
           uli.ssbyp = '00'
           AND (uli.reg_dt AT TIME ZONE 'KST') BETWEEN $1::timestamp AND $2::timestamp
       `,
-      values: [startUTC, endUTC]
+      values: [startKST, endKST]
     };
   },
 
   // 통합 신규 회원수
   getNewIntegratedUsers: (startDate, endDate) => {
-    const startUTC = convertKSTToUTC(startDate);
-    const endUTC = convertKSTToUTC(endDate);
+    const startKST = `${startDate} 00:00:00`;
+    const endKST = `${endDate} 23:59:59`;
     
     return {
       text: `
@@ -47,14 +47,14 @@ const queries = {
           u.reg_dt >= '2025-07-28 05:00:00'::timestamp with time zone
           AND (uli.reg_dt AT TIME ZONE 'KST') BETWEEN $1::timestamp AND $2::timestamp
       `,
-      values: [startUTC, endUTC]
+      values: [startKST, endKST]
     };
   },
 
   // 통합 전환 회원수
   getConvertedIntegratedUsers: (startDate, endDate) => {
-    const startUTC = convertKSTToUTC(startDate);
-    const endUTC = convertKSTToUTC(endDate);
+    const startKST = `${startDate} 00:00:00`;
+    const endKST = `${endDate} 23:59:59`;
     
     return {
       text: `
@@ -68,14 +68,14 @@ const queries = {
           u.reg_dt < '2025-07-28 05:00:00'::timestamp with time zone
           AND (uli.reg_dt AT TIME ZONE 'KST') BETWEEN $1::timestamp AND $2::timestamp
       `,
-      values: [startUTC, endUTC]
+      values: [startKST, endKST]
     };
   },
 
   // 실물 카드 신청수
   getPhysicalCardRequests: (startDate, endDate) => {
-    const startUTC = convertKSTToUTC(startDate);
-    const endUTC = convertKSTToUTC(endDate);
+    const startKST = `${startDate} 00:00:00`;
+    const endKST = `${endDate} 23:59:59`;
     
     return {
       text: `
@@ -87,14 +87,14 @@ const queries = {
           uch.actor = '회원실물카드신청'
           AND (uch.reg_dt AT TIME ZONE 'KST') BETWEEN $1::timestamp AND $2::timestamp
       `,
-      values: [startUTC, endUTC]
+      values: [startKST, endKST]
     };
   },
 
   // 온라인 카드 자동 발급 수
   getOnlineAutoIssuedCards: (startDate, endDate) => {
-    const startUTC = convertKSTToUTC(startDate);
-    const endUTC = convertKSTToUTC(endDate);
+    const startKST = `${startDate} 00:00:00`;
+    const endKST = `${endDate} 23:59:59`;
     
     return {
       text: `
@@ -107,7 +107,7 @@ const queries = {
           AND uch.card_ty = '온라인'
           AND (uch.reg_dt AT TIME ZONE 'KST') BETWEEN $1::timestamp AND $2::timestamp
       `,
-      values: [startUTC, endUTC]
+      values: [startKST, endKST]
     };
   },
 
