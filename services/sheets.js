@@ -6,7 +6,6 @@ class GoogleSheetsService {
     this.auth = null;
     this.sheets = null;
     this.spreadsheetId = process.env.GOOGLE_SPREADSHEET_ID;
-    this.dataset2SpreadsheetId = process.env.GOOGLE_SPREADSHEET_ID2;
     this.initializeAuth();
   }
 
@@ -55,19 +54,56 @@ class GoogleSheetsService {
         throw new Error('Google Sheets API가 초기화되지 않았습니다.');
       }
 
+      // 오늘 날짜 확인
+      const today = new Date().toISOString().split('T')[0];
+      const isToday = date === today;
+
+      // 오늘이 아닌 경우에만 중복 업데이트 방지 체크
+      if (!isToday) {
+        const isAlreadyUpdated = await this.checkIfAlreadyUpdated(date);
+        if (isAlreadyUpdated) {
+          console.log(`${date} 데이터는 이미 업데이트되었습니다. 건너뛰기`);
+          return;
+        }
+      } else {
+        console.log(`${date} 오늘 날짜 - 기존 데이터 갱신 진행`);
+      }
+
       // dataset 시트 업데이트
       await this.updateDatasetSheet(date, data);
       
       // 25.08 시트 업데이트
       await this.updateMonthlySheet(date, data);
-      
-      // dataset2 시트 업데이트 (마일리지 통계)
-      await this.updateDataset2Sheet(date);
 
       console.log(`${date} 데이터 업데이트 완료`);
     } catch (error) {
       console.error('Google Sheets 업데이트 실패:', error);
       throw error;
+    }
+  }
+
+  // 이미 업데이트된 날짜인지 확인
+  async checkIfAlreadyUpdated(date) {
+    try {
+      // dataset 시트에서 해당 날짜 데이터 확인
+      const existingData = await this.sheets.spreadsheets.values.get({
+        spreadsheetId: this.spreadsheetId,
+        range: 'dataset!A:A',
+      });
+
+      const rows = existingData.data.values || [];
+      
+      // 해당 날짜의 데이터가 있는지 확인
+      for (let i = 1; i < rows.length; i++) {
+        if (rows[i][0] === date) {
+          return true; // 이미 업데이트됨
+        }
+      }
+
+      return false; // 업데이트되지 않음
+    } catch (error) {
+      console.error(`업데이트 상태 확인 실패 (${date}):`, error);
+      return false; // 에러 시 업데이트 진행
     }
   }
 
@@ -83,6 +119,10 @@ class GoogleSheetsService {
         moment().tz('Asia/Seoul').format('YYYY-MM-DD HH:mm:ss')
       ]
     ];
+
+    // 오늘 날짜 확인
+    const today = new Date().toISOString().split('T')[0];
+    const isToday = date === today;
 
     // 기존 데이터 확인
     const existingData = await this.sheets.spreadsheets.values.get({
@@ -109,6 +149,12 @@ class GoogleSheetsService {
         valueInputOption: 'RAW',
         resource: { values }
       });
+      
+      if (isToday) {
+        console.log(`dataset 시트 ${date} 기존 데이터 갱신 완료`);
+      } else {
+        console.log(`dataset 시트 ${date} 기존 데이터 업데이트 완료`);
+      }
     } else {
       // 새 데이터 추가
       await this.sheets.spreadsheets.values.append({
@@ -118,6 +164,8 @@ class GoogleSheetsService {
         insertDataOption: 'INSERT_ROWS',
         resource: { values }
       });
+      
+      console.log(`dataset 시트 ${date} 새 데이터 추가 완료`);
     }
   }
 
@@ -149,6 +197,8 @@ class GoogleSheetsService {
             return;
           }
         }
+      } else {
+        console.log(`25.08 시트 ${day}일 오늘 날짜 - 기존 데이터 갱신 진행`);
       }
 
       // 숫자로 변환하여 수식 적용이 가능하도록 함
@@ -171,7 +221,7 @@ class GoogleSheetsService {
       });
       
       if (isToday) {
-        console.log(`25.08 시트 ${day}일 데이터 업데이트 완료 (오늘 날짜 - 재업데이트 허용)`);
+        console.log(`25.08 시트 ${day}일 데이터 갱신 완료 (오늘 날짜)`);
       } else {
         console.log(`25.08 시트 ${day}일 데이터 업데이트 완료`);
       }
@@ -181,8 +231,11 @@ class GoogleSheetsService {
     }
   }
 
-  // dataset2 시트 업데이트 (마일리지 통계)
+  // dataset2 시트 업데이트 (마일리지 통계) - 비활성화됨
   async updateDataset2Sheet(date) {
+    // Dataset2 시트 업데이트가 비활성화되었습니다.
+    console.log(`Dataset2 시트 업데이트가 비활성화되었습니다. (${date})`);
+    return;
     try {
       if (!this.sheets || !this.dataset2SpreadsheetId) {
         console.log('dataset2 스프레드시트 ID가 설정되지 않았습니다.');
@@ -249,14 +302,14 @@ class GoogleSheetsService {
           await this.sheets.spreadsheets.values.update({
             spreadsheetId: this.dataset2SpreadsheetId,
             range: `dataset2!A${rowIndex}:P${rowIndex}`,
-            valueInputOption: 'USER_ENTERED',
+            valueInputOption: 'RAW',
             resource: { values }
           });
         } else {
           await this.sheets.spreadsheets.values.append({
             spreadsheetId: this.dataset2SpreadsheetId,
             range: 'dataset2!A:P',
-            valueInputOption: 'USER_ENTERED',
+            valueInputOption: 'RAW',
             insertDataOption: 'INSERT_ROWS',
             resource: { values }
           });
@@ -268,6 +321,23 @@ class GoogleSheetsService {
       if (gradeResult.rows.length > 0) {
         await this.ensureSheetExists(this.dataset2SpreadsheetId, 'dataset3');
 
+        // 기존 데이터 확인 (해당 날짜의 등급별 데이터)
+        const existingGradeData = await this.sheets.spreadsheets.values.get({
+          spreadsheetId: this.dataset2SpreadsheetId,
+          range: 'dataset3!A:A',
+        });
+
+        const gradeRows = existingGradeData.data.values || [];
+        let gradeRowIndex = -1;
+
+        // 해당 날짜의 데이터가 있는지 확인
+        for (let i = 1; i < gradeRows.length; i++) {
+          if (gradeRows[i][0] === date) {
+            gradeRowIndex = i + 1;
+            break;
+          }
+        }
+
         const gradeValues = gradeResult.rows.map(row => [
           date,
           row.grade_nm,
@@ -277,19 +347,53 @@ class GoogleSheetsService {
           row.avg_mileage || 0
         ]);
 
-        await this.sheets.spreadsheets.values.append({
-          spreadsheetId: this.dataset2SpreadsheetId,
-          range: 'dataset3!A:F',
-          valueInputOption: 'USER_ENTERED',
-          insertDataOption: 'INSERT_ROWS',
-          resource: { values: gradeValues }
-        });
+        if (gradeRowIndex > 0) {
+          // 기존 데이터가 있으면 해당 행부터 삭제 후 새 데이터 추가
+          const deleteRange = `dataset3!A${gradeRowIndex}:F${gradeRowIndex + gradeValues.length - 1}`;
+          await this.sheets.spreadsheets.values.clear({
+            spreadsheetId: this.dataset2SpreadsheetId,
+            range: deleteRange,
+          });
+          
+          await this.sheets.spreadsheets.values.update({
+            spreadsheetId: this.dataset2SpreadsheetId,
+            range: `dataset3!A${gradeRowIndex}:F${gradeRowIndex + gradeValues.length - 1}`,
+            valueInputOption: 'RAW',
+            resource: { values: gradeValues }
+          });
+        } else {
+          // 새 데이터 추가
+          await this.sheets.spreadsheets.values.append({
+            spreadsheetId: this.dataset2SpreadsheetId,
+            range: 'dataset3!A:F',
+            valueInputOption: 'RAW',
+            insertDataOption: 'INSERT_ROWS',
+            resource: { values: gradeValues }
+          });
+        }
         console.log(`dataset3 시트 ${date} 회원등급별 통계 업데이트 완료`);
       }
 
       // 3) 회원 등록 카운트 -> dataset4 시트
       if (registrationResult.rows.length > 0) {
         await this.ensureSheetExists(this.dataset2SpreadsheetId, 'dataset4');
+
+        // 기존 데이터 확인
+        const existingRegistrationData = await this.sheets.spreadsheets.values.get({
+          spreadsheetId: this.dataset2SpreadsheetId,
+          range: 'dataset4!A:A',
+        });
+
+        const registrationRows = existingRegistrationData.data.values || [];
+        let registrationRowIndex = -1;
+
+        // 해당 날짜의 데이터가 있는지 확인
+        for (let i = 1; i < registrationRows.length; i++) {
+          if (registrationRows[i][0] === date) {
+            registrationRowIndex = i + 1;
+            break;
+          }
+        }
 
         const registrationData = registrationResult.rows[0];
         const registrationValues = [
@@ -300,13 +404,24 @@ class GoogleSheetsService {
           ]
         ];
 
-        await this.sheets.spreadsheets.values.append({
-          spreadsheetId: this.dataset2SpreadsheetId,
-          range: 'dataset4!A:C',
-          valueInputOption: 'USER_ENTERED',
-          insertDataOption: 'INSERT_ROWS',
-          resource: { values: registrationValues }
-        });
+        if (registrationRowIndex > 0) {
+          // 기존 데이터 업데이트
+          await this.sheets.spreadsheets.values.update({
+            spreadsheetId: this.dataset2SpreadsheetId,
+            range: `dataset4!A${registrationRowIndex}:C${registrationRowIndex}`,
+            valueInputOption: 'RAW',
+            resource: { values: registrationValues }
+          });
+        } else {
+          // 새 데이터 추가
+          await this.sheets.spreadsheets.values.append({
+            spreadsheetId: this.dataset2SpreadsheetId,
+            range: 'dataset4!A:C',
+            valueInputOption: 'RAW',
+            insertDataOption: 'INSERT_ROWS',
+            resource: { values: registrationValues }
+          });
+        }
         console.log(`dataset4 시트 ${date} 회원 등록 카운트 업데이트 완료`);
       }
 
@@ -372,6 +487,126 @@ class GoogleSheetsService {
     } catch (error) {
       console.error('dataset2 헤더 설정 실패:', error);
       throw error;
+    }
+  }
+
+  // 중복 데이터 정리
+  async cleanDuplicateData(date) {
+    try {
+      if (!this.sheets || !this.dataset2SpreadsheetId) {
+        throw new Error('dataset2 스프레드시트 ID가 설정되지 않았습니다.');
+      }
+
+      // 1. Dataset2 (마일리지 통계) 중복 정리
+      await this.cleanDataset2Duplicates(date);
+      
+      // 2. Dataset3 (등급별 통계) 중복 정리
+      await this.cleanDataset3Duplicates(date);
+      
+      // 3. Dataset4 (회원 등록) 중복 정리
+      await this.cleanDataset4Duplicates(date);
+
+      console.log(`${date} 중복 데이터 정리 완료`);
+    } catch (error) {
+      console.error(`${date} 중복 데이터 정리 실패:`, error);
+      throw error;
+    }
+  }
+
+  // Dataset2 중복 정리
+  async cleanDataset2Duplicates(date) {
+    const existingData = await this.sheets.spreadsheets.values.get({
+      spreadsheetId: this.dataset2SpreadsheetId,
+      range: 'dataset2!A:A',
+    });
+
+    const rows = existingData.data.values || [];
+    const duplicateRows = [];
+
+    // 해당 날짜의 모든 행 찾기
+    for (let i = 1; i < rows.length; i++) {
+      if (rows[i][0] === date) {
+        duplicateRows.push(i + 1);
+      }
+    }
+
+    // 중복이 있으면 첫 번째만 남기고 나머지 삭제
+    if (duplicateRows.length > 1) {
+      const rowsToDelete = duplicateRows.slice(1); // 첫 번째 제외하고 삭제할 행들
+      
+      // 뒤에서부터 삭제 (인덱스 변경 방지)
+      for (let i = rowsToDelete.length - 1; i >= 0; i--) {
+        await this.sheets.spreadsheets.values.clear({
+          spreadsheetId: this.dataset2SpreadsheetId,
+          range: `dataset2!A${rowsToDelete[i]}:P${rowsToDelete[i]}`,
+        });
+      }
+      
+      console.log(`Dataset2 ${date}: ${duplicateRows.length - 1}개 중복 행 삭제`);
+    }
+  }
+
+  // Dataset3 중복 정리
+  async cleanDataset3Duplicates(date) {
+    const existingData = await this.sheets.spreadsheets.values.get({
+      spreadsheetId: this.dataset2SpreadsheetId,
+      range: 'dataset3!A:A',
+    });
+
+    const rows = existingData.data.values || [];
+    const duplicateRows = [];
+
+    // 해당 날짜의 모든 행 찾기
+    for (let i = 1; i < rows.length; i++) {
+      if (rows[i][0] === date) {
+        duplicateRows.push(i + 1);
+      }
+    }
+
+    // 중복이 있으면 첫 번째만 남기고 나머지 삭제
+    if (duplicateRows.length > 1) {
+      const rowsToDelete = duplicateRows.slice(1);
+      
+      for (let i = rowsToDelete.length - 1; i >= 0; i--) {
+        await this.sheets.spreadsheets.values.clear({
+          spreadsheetId: this.dataset2SpreadsheetId,
+          range: `dataset3!A${rowsToDelete[i]}:F${rowsToDelete[i]}`,
+        });
+      }
+      
+      console.log(`Dataset3 ${date}: ${duplicateRows.length - 1}개 중복 행 삭제`);
+    }
+  }
+
+  // Dataset4 중복 정리
+  async cleanDataset4Duplicates(date) {
+    const existingData = await this.sheets.spreadsheets.values.get({
+      spreadsheetId: this.dataset2SpreadsheetId,
+      range: 'dataset4!A:A',
+    });
+
+    const rows = existingData.data.values || [];
+    const duplicateRows = [];
+
+    // 해당 날짜의 모든 행 찾기
+    for (let i = 1; i < rows.length; i++) {
+      if (rows[i][0] === date) {
+        duplicateRows.push(i + 1);
+      }
+    }
+
+    // 중복이 있으면 첫 번째만 남기고 나머지 삭제
+    if (duplicateRows.length > 1) {
+      const rowsToDelete = duplicateRows.slice(1);
+      
+      for (let i = rowsToDelete.length - 1; i >= 0; i--) {
+        await this.sheets.spreadsheets.values.clear({
+          spreadsheetId: this.dataset2SpreadsheetId,
+          range: `dataset4!A${rowsToDelete[i]}:C${rowsToDelete[i]}`,
+        });
+      }
+      
+      console.log(`Dataset4 ${date}: ${duplicateRows.length - 1}개 중복 행 삭제`);
     }
   }
 
