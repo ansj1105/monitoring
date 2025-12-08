@@ -132,7 +132,7 @@ router.post('/start-auto-update', (req, res) => {
     }
     
     // 매시간 39분에 실행 (오늘 데이터 업데이트)
-    autoUpdateJob = cron.schedule('39 */1 * * *', async () => {
+    autoUpdateJob = cron.schedule('59 */1 * * *', async () => {
       const now = new Date();
       const todayStr = now.toISOString().split('T')[0];
       
@@ -337,6 +337,62 @@ router.post('/update-now', async (req, res) => {
   } catch (error) {
     console.error('즉시 업데이트 실패:', error);
     res.status(500).json({ error: '즉시 업데이트 중 오류가 발생했습니다.' });
+  }
+});
+
+// 특정 날짜 업데이트 실행 (테스트용)
+router.post('/update-specific-date', async (req, res) => {
+  try {
+    const { date } = req.body;
+    
+    if (!date) {
+      return res.status(400).json({ error: '날짜를 입력해주세요. (YYYY-MM-DD 형식)' });
+    }
+    
+    console.log(`특정 날짜 업데이트 시작: ${date}`);
+    
+    const query = queries.getDailyIntegrationData(date);
+    
+    // 데이터베이스 연결 재시도 로직 (최대 3회)
+    let result;
+    let retryCount = 0;
+    const maxRetries = 3;
+    
+    while (retryCount < maxRetries) {
+      try {
+        result = await pool.query(query.text, query.values);
+        console.log(`데이터베이스 결과:`, result.rows[0]);
+        break; // 성공하면 루프 종료
+      } catch (dbError) {
+        retryCount++;
+        console.log(`특정 날짜 업데이트 - 데이터베이스 연결 시도 ${retryCount}/${maxRetries} 실패:`, dbError.message);
+        
+        if (retryCount >= maxRetries) {
+          throw dbError; // 최대 재시도 횟수 초과시 에러 던지기
+        }
+        
+        // 5초 대기 후 재시도
+        await new Promise(resolve => setTimeout(resolve, 5000));
+      }
+    }
+    
+    const dataToUpdate = result.rows[0] || {
+      total_integrated_users: 0,
+      new_integrated_users: 0,
+      converted_integrated_users: 0,
+      physical_card_requests: 0,
+      online_auto_issued_cards: 0
+    };
+    
+    console.log(`업데이트할 데이터:`, dataToUpdate);
+    
+    await sheetsService.updateDailyData(date, dataToUpdate);
+
+    console.log(`특정 날짜 업데이트 완료: ${date}`);
+    res.json({ message: `특정 날짜 업데이트 완료: ${date}`, data: dataToUpdate });
+  } catch (error) {
+    console.error('특정 날짜 업데이트 실패:', error);
+    res.status(500).json({ error: '특정 날짜 업데이트 중 오류가 발생했습니다.' });
   }
 });
 

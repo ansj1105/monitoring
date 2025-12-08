@@ -15,7 +15,7 @@ const queries = {
   getTotalIntegratedUsers: (startDate, endDate) => {
     const startKST = `${startDate} 00:00:00`;
     const endKST = `${endDate} 23:59:59`;
-    
+
     return {
       text: `
         SELECT
@@ -34,18 +34,18 @@ const queries = {
   getNewIntegratedUsers: (startDate, endDate) => {
     const startKST = `${startDate} 00:00:00`;
     const endKST = `${endDate} 23:59:59`;
-    
+
     return {
       text: `
-        SELECT
-          COUNT(DISTINCT u.cloud_id) AS new_integrated_users
-        FROM
-          user_login_info uli
-        JOIN
-          users u ON uli.cloud_id = u.cloud_id
-        WHERE
-          u.reg_dt >= '2025-07-28 05:00:00'::timestamp with time zone
-          AND (uli.reg_dt AT TIME ZONE 'KST') BETWEEN $1::timestamp AND $2::timestamp
+          SELECT COUNT(DISTINCT u.cloud_id) AS new_integrated_users
+          FROM
+              user_login_info uli
+          JOIN
+              users u ON uli.cloud_id = u.cloud_id
+          WHERE
+              uli.ssbyp = '00'
+              AND u.reg_dt >= '2025-07-28 05:00:00'::timestamp with time zone
+              AND (uli.reg_dt AT TIME ZONE 'KST') BETWEEN $1::timestamp AND $2::timestamp
       `,
       values: [startKST, endKST]
     };
@@ -55,18 +55,18 @@ const queries = {
   getConvertedIntegratedUsers: (startDate, endDate) => {
     const startKST = `${startDate} 00:00:00`;
     const endKST = `${endDate} 23:59:59`;
-    
+
     return {
       text: `
-        SELECT
-          COUNT(DISTINCT u.cloud_id) AS converted_integrated_users
-        FROM
-          user_login_info uli
-        JOIN
-          users u ON uli.cloud_id = u.cloud_id
-        WHERE
-          u.reg_dt < '2025-07-28 05:00:00'::timestamp with time zone
-          AND (uli.reg_dt AT TIME ZONE 'KST') BETWEEN $1::timestamp AND $2::timestamp
+          SELECT COUNT(DISTINCT u.cloud_id) AS converted_integrated_users
+          FROM
+              user_login_info uli
+          JOIN
+              users u ON uli.cloud_id = u.cloud_id
+          WHERE
+              uli.ssbyp = '00'
+              AND u.reg_dt < '2025-07-28 05:00:00'::timestamp with time zone
+              AND (uli.reg_dt AT TIME ZONE 'KST') BETWEEN $1::timestamp AND $2::timestamp
       `,
       values: [startKST, endKST]
     };
@@ -76,7 +76,7 @@ const queries = {
   getPhysicalCardRequests: (startDate, endDate) => {
     const startKST = `${startDate} 00:00:00`;
     const endKST = `${endDate} 23:59:59`;
-    
+
     return {
       text: `
         SELECT
@@ -95,7 +95,7 @@ const queries = {
   getOnlineAutoIssuedCards: (startDate, endDate) => {
     const startKST = `${startDate} 00:00:00`;
     const endKST = `${endDate} 23:59:59`;
-    
+
     return {
       text: `
         SELECT
@@ -115,7 +115,7 @@ const queries = {
   getDailyIntegrationData: (date) => {
     const startDate = `${date} 00:00:00`;
     const endDate = `${date} 23:59:59`;
-    
+
     return {
       text: `
         SELECT
@@ -155,7 +155,7 @@ const queries = {
   getMileageStats: (date) => {
     const startDate = `${date} 00:00:00`;
     const endDate = `${date} 23:59:59`;
-    
+
     return {
       text: `
         SELECT 
@@ -203,7 +203,7 @@ const queries = {
   getMileageGradeStats: (date) => {
     const startDate = `${date} 00:00:00`;
     const endDate = `${date} 23:59:59`;
-    
+
     return {
       text: `
         SELECT 
@@ -236,7 +236,7 @@ const queries = {
   getDailyUserRegistration: (date) => {
     const startDate = `${date} 00:00:00`;
     const endDate = `${date} 23:59:59`;
-    
+
     return {
       text: `
         SELECT 

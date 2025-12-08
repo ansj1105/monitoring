@@ -47,38 +47,56 @@ class GoogleSheetsService {
     }
   }
 
-  // 일별 데이터를 Google Sheets에 업데이트
+  // 일별 데이터를 Google Sheets에 업데이트 - 재시도 정책 포함
   async updateDailyData(date, data) {
-    try {
-      if (!this.sheets || !this.spreadsheetId) {
-        throw new Error('Google Sheets API가 초기화되지 않았습니다.');
-      }
-
-      // 오늘 날짜 확인
-      const today = new Date().toISOString().split('T')[0];
-      const isToday = date === today;
-
-      // 오늘이 아닌 경우에만 중복 업데이트 방지 체크
-      if (!isToday) {
-        const isAlreadyUpdated = await this.checkIfAlreadyUpdated(date);
-        if (isAlreadyUpdated) {
-          console.log(`${date} 데이터는 이미 업데이트되었습니다. 건너뛰기`);
-          return;
+    const maxRetries = 3;
+    let retryCount = 0;
+    
+    while (retryCount < maxRetries) {
+      try {
+        if (!this.sheets || !this.spreadsheetId) {
+          throw new Error('Google Sheets API가 초기화되지 않았습니다.');
         }
-      } else {
-        console.log(`${date} 오늘 날짜 - 기존 데이터 갱신 진행`);
+
+        // 오늘 날짜 확인
+        const today = new Date().toISOString().split('T')[0];
+        const isToday = date === today;
+
+        // 오늘이 아닌 경우에만 중복 업데이트 방지 체크
+        if (!isToday) {
+          const isAlreadyUpdated = await this.checkIfAlreadyUpdated(date);
+          if (isAlreadyUpdated) {
+            console.log(`${date} 데이터는 이미 업데이트되었습니다. 건너뛰기`);
+            return;
+          }
+        } else {
+          console.log(`${date} 오늘 날짜 - 기존 데이터 갱신 진행`);
+        }
+
+        // dataset 시트 업데이트
+        await this.updateDatasetSheet(date, data);
+        
+        // 월별 시트 업데이트 (25.08, 25.09 등)
+        await this.updateMonthlySheet(date, data);
+
+        console.log(`${date} 데이터 업데이트 완료`);
+        
+        // 성공하면 루프 종료
+        break;
+        
+      } catch (error) {
+        retryCount++;
+        console.error(`Google Sheets 업데이트 실패 (시도 ${retryCount}/${maxRetries}):`, error.message);
+        
+        if (retryCount >= maxRetries) {
+          console.error('최대 재시도 횟수 초과. Google Sheets 업데이트를 포기합니다.');
+          throw error;
+        }
+        
+        // 5초 대기 후 재시도
+        console.log(`5초 후 재시도합니다...`);
+        await new Promise(resolve => setTimeout(resolve, 5000));
       }
-
-      // dataset 시트 업데이트
-      await this.updateDatasetSheet(date, data);
-      
-      // 25.08 시트 업데이트
-      await this.updateMonthlySheet(date, data);
-
-      console.log(`${date} 데이터 업데이트 완료`);
-    } catch (error) {
-      console.error('Google Sheets 업데이트 실패:', error);
-      throw error;
     }
   }
 
@@ -107,127 +125,175 @@ class GoogleSheetsService {
     }
   }
 
-  // dataset 시트 업데이트
+  // dataset 시트 업데이트 - 재시도 정책 포함
   async updateDatasetSheet(date, data) {
-    const values = [
-      [
-        date,
-        data.new_integrated_users,
-        data.converted_integrated_users,
-        data.physical_card_requests,
-        data.online_auto_issued_cards,
-        moment().tz('Asia/Seoul').format('YYYY-MM-DD HH:mm:ss')
-      ]
-    ];
+    const maxRetries = 3;
+    let retryCount = 0;
+    
+    while (retryCount < maxRetries) {
+      try {
+        const values = [
+          [
+            date,
+            data.new_integrated_users,
+            data.converted_integrated_users,
+            data.physical_card_requests,
+            data.online_auto_issued_cards,
+            moment().tz('Asia/Seoul').format('YYYY-MM-DD HH:mm:ss')
+          ]
+        ];
 
-    // 오늘 날짜 확인
-    const today = new Date().toISOString().split('T')[0];
-    const isToday = date === today;
+        // 오늘 날짜 확인
+        const today = new Date().toISOString().split('T')[0];
+        const isToday = date === today;
 
-    // 기존 데이터 확인
-    const existingData = await this.sheets.spreadsheets.values.get({
-      spreadsheetId: this.spreadsheetId,
-      range: 'dataset!A:A',
-    });
+        // 기존 데이터 확인
+        const existingData = await this.sheets.spreadsheets.values.get({
+          spreadsheetId: this.spreadsheetId,
+          range: 'dataset!A:A',
+        });
 
-    const rows = existingData.data.values || [];
-    let rowIndex = -1;
+        const rows = existingData.data.values || [];
+        let rowIndex = -1;
 
-    // 해당 날짜의 데이터가 있는지 확인
-    for (let i = 1; i < rows.length; i++) {
-      if (rows[i][0] === date) {
-        rowIndex = i + 1; // 1-based index
+        // 해당 날짜의 데이터가 있는지 확인
+        for (let i = 1; i < rows.length; i++) {
+          if (rows[i][0] === date) {
+            rowIndex = i + 1; // 1-based index
+            break;
+          }
+        }
+
+        if (rowIndex > 0) {
+          // 기존 데이터 업데이트
+          await this.sheets.spreadsheets.values.update({
+            spreadsheetId: this.spreadsheetId,
+            range: `dataset!A${rowIndex}:G${rowIndex}`,
+            valueInputOption: 'RAW',
+            resource: { values }
+          });
+          
+          if (isToday) {
+            console.log(`dataset 시트 ${date} 기존 데이터 갱신 완료`);
+          } else {
+            console.log(`dataset 시트 ${date} 기존 데이터 업데이트 완료`);
+          }
+        } else {
+          // 새 데이터 추가
+          await this.sheets.spreadsheets.values.append({
+            spreadsheetId: this.spreadsheetId,
+            range: 'dataset!A:G',
+            valueInputOption: 'RAW',
+            insertDataOption: 'INSERT_ROWS',
+            resource: { values }
+          });
+          
+          console.log(`dataset 시트 ${date} 새 데이터 추가 완료`);
+        }
+        
+        // 성공하면 루프 종료
         break;
+        
+      } catch (error) {
+        retryCount++;
+        console.error(`dataset 시트 업데이트 실패 (시도 ${retryCount}/${maxRetries}):`, error.message);
+        
+        if (retryCount >= maxRetries) {
+          console.error('최대 재시도 횟수 초과. dataset 시트 업데이트를 포기합니다.');
+          throw error;
+        }
+        
+        // 3초 대기 후 재시도
+        console.log(`3초 후 재시도합니다...`);
+        await new Promise(resolve => setTimeout(resolve, 3000));
       }
-    }
-
-    if (rowIndex > 0) {
-      // 기존 데이터 업데이트
-      await this.sheets.spreadsheets.values.update({
-        spreadsheetId: this.spreadsheetId,
-        range: `dataset!A${rowIndex}:G${rowIndex}`,
-        valueInputOption: 'RAW',
-        resource: { values }
-      });
-      
-      if (isToday) {
-        console.log(`dataset 시트 ${date} 기존 데이터 갱신 완료`);
-      } else {
-        console.log(`dataset 시트 ${date} 기존 데이터 업데이트 완료`);
-      }
-    } else {
-      // 새 데이터 추가
-      await this.sheets.spreadsheets.values.append({
-        spreadsheetId: this.spreadsheetId,
-        range: 'dataset!A:G',
-        valueInputOption: 'RAW',
-        insertDataOption: 'INSERT_ROWS',
-        resource: { values }
-      });
-      
-      console.log(`dataset 시트 ${date} 새 데이터 추가 완료`);
     }
   }
 
-  // 25.08 시트 업데이트 (업데이트 시간 제외)
+  // 월별 시트 업데이트 (업데이트 시간 제외) - 재시도 정책 포함
   async updateMonthlySheet(date, data) {
-    try {
-      // 날짜에서 일자만 추출
-      const day = parseInt(date.split('-')[2]);
-      const rowIndex = day + 4; // B4부터 시작하므로 +4 (1일 = B5, 2일 = B6, ...)
+    const maxRetries = 3;
+    let retryCount = 0;
+    
+    while (retryCount < maxRetries) {
+      try {
+        // 날짜에서 월과 일자 추출
+        const [year, month, day] = date.split('-');
+        const dayNum = parseInt(day);
+        const rowIndex = dayNum + 4; // B4부터 시작하므로 +4 (1일 = B5, 2일 = B6, ...)
+        
+        // 시트 이름 결정 (25.08, 25.09, 25.10 등)
+        const sheetName = `25.${month.padStart(2, '0')}`;
+        
+        // 시트가 존재하는지 확인하고 없으면 생성
+        await this.ensureSheetExists(this.spreadsheetId, sheetName);
 
-      // 오늘 날짜 확인
-      const today = new Date().toISOString().split('T')[0];
-      const isToday = date === today;
+        // 오늘 날짜 확인
+        const today = new Date().toISOString().split('T')[0];
+        const isToday = date === today;
 
-      // 오늘이 아닌 경우에만 기존 데이터 확인
-      if (!isToday) {
-        const existingData = await this.sheets.spreadsheets.values.get({
-          spreadsheetId: this.spreadsheetId,
-          range: `25.08!C${rowIndex}:F${rowIndex}`,
-        });
+        // 오늘이 아닌 경우에만 기존 데이터 확인
+        if (!isToday) {
+          const existingData = await this.sheets.spreadsheets.values.get({
+            spreadsheetId: this.spreadsheetId,
+            range: `${sheetName}!C${rowIndex}:F${rowIndex}`,
+          });
 
-        // 데이터가 있으면 건너뛰기
-        if (existingData.data.values && existingData.data.values.length > 0) {
-          const row = existingData.data.values[0];
-          const hasData = row.some(cell => cell && cell.toString().trim() !== '');
-          
-          if (hasData) {
-            console.log(`25.08 시트 ${day}일 데이터가 이미 존재함 - 건너뛰기`);
-            return;
+          // 데이터가 있으면 건너뛰기
+          if (existingData.data.values && existingData.data.values.length > 0) {
+            const row = existingData.data.values[0];
+            const hasData = row.some(cell => cell && cell.toString().trim() !== '');
+            
+            if (hasData) {
+              console.log(`${sheetName} 시트 ${dayNum}일 데이터가 이미 존재함 - 건너뛰기`);
+              return;
+            }
           }
+        } else {
+          console.log(`${sheetName} 시트 ${dayNum}일 오늘 날짜 - 기존 데이터 갱신 진행`);
         }
-      } else {
-        console.log(`25.08 시트 ${day}일 오늘 날짜 - 기존 데이터 갱신 진행`);
-      }
 
-      // 숫자로 변환하여 수식 적용이 가능하도록 함
-      const values = [
-        [
-          parseInt(data.new_integrated_users) || 0,     // 신규가입
-          parseInt(data.converted_integrated_users) || 0, // 통합전환
-          parseInt(data.physical_card_requests) || 0,   // 실물카드신청
-          parseInt(data.online_auto_issued_cards) || 0  // 온라인카드 자동발급
-        ]
-      ];
+        // 숫자로 변환하여 수식 적용이 가능하도록 함
+        const values = [
+          [
+            parseInt(data.new_integrated_users) || 0,     // 신규가입
+            parseInt(data.converted_integrated_users) || 0, // 통합전환
+            parseInt(data.physical_card_requests) || 0,   // 실물카드신청
+            parseInt(data.online_auto_issued_cards) || 0  // 온라인카드 자동발급
+          ]
+        ];
 
-      // 25.08 시트의 해당 일자 행에 데이터 업데이트 (일자 제외, C열부터 F열까지)
-      // USER_ENTERED를 사용하여 숫자로 인식되도록 함
-      await this.sheets.spreadsheets.values.update({
-        spreadsheetId: this.spreadsheetId,
-        range: `25.08!C${rowIndex}:F${rowIndex}`,
-        valueInputOption: 'USER_ENTERED',
-        resource: { values }
-      });
-      
-      if (isToday) {
-        console.log(`25.08 시트 ${day}일 데이터 갱신 완료 (오늘 날짜)`);
-      } else {
-        console.log(`25.08 시트 ${day}일 데이터 업데이트 완료`);
+        // 해당 월 시트의 일자 행에 데이터 업데이트 (일자 제외, C열부터 F열까지)
+        // USER_ENTERED를 사용하여 숫자로 인식되도록 함
+        await this.sheets.spreadsheets.values.update({
+          spreadsheetId: this.spreadsheetId,
+          range: `${sheetName}!C${rowIndex}:F${rowIndex}`,
+          valueInputOption: 'USER_ENTERED',
+          resource: { values }
+        });
+        
+        if (isToday) {
+          console.log(`${sheetName} 시트 ${dayNum}일 데이터 갱신 완료 (오늘 날짜)`);
+        } else {
+          console.log(`${sheetName} 시트 ${dayNum}일 데이터 업데이트 완료`);
+        }
+        
+        // 성공하면 루프 종료
+        break;
+        
+      } catch (error) {
+        retryCount++;
+        console.error(`월별 시트 업데이트 실패 (시도 ${retryCount}/${maxRetries}):`, error.message);
+        
+        if (retryCount >= maxRetries) {
+          console.error('최대 재시도 횟수 초과. 월별 시트 업데이트를 포기합니다.');
+          throw error;
+        }
+        
+        // 3초 대기 후 재시도
+        console.log(`3초 후 재시도합니다...`);
+        await new Promise(resolve => setTimeout(resolve, 3000));
       }
-    } catch (error) {
-      console.error('월별 시트 업데이트 실패:', error);
-      throw error;
     }
   }
 
