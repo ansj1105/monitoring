@@ -62,16 +62,8 @@ class GoogleSheetsService {
         const today = new Date().toISOString().split('T')[0];
         const isToday = date === today;
 
-        // 오늘이 아닌 경우에만 중복 업데이트 방지 체크
-        if (!isToday) {
-          const isAlreadyUpdated = await this.checkIfAlreadyUpdated(date);
-          if (isAlreadyUpdated) {
-            console.log(`${date} 데이터는 이미 업데이트되었습니다. 건너뛰기`);
-            return;
-          }
-        } else {
-          console.log(`${date} 오늘 날짜 - 기존 데이터 갱신 진행`);
-        }
+        // 기존 데이터가 있어도 항상 업데이트 진행
+        console.log(`${date} 데이터 업데이트 진행`);
 
         // dataset 시트 업데이트
         await this.updateDatasetSheet(date, data);
@@ -223,7 +215,7 @@ class GoogleSheetsService {
         const rowIndex = dayNum + 4; // B4부터 시작하므로 +4 (1일 = B5, 2일 = B6, ...)
         
         // 시트 이름 결정 (25.08, 25.09, 25.10 등)
-        const sheetName = `25.${month.padStart(2, '0')}`;
+        const sheetName = `26.${month.padStart(2, '0')}`;
         
         // 시트가 존재하는지 확인하고 없으면 생성
         await this.ensureSheetExists(this.spreadsheetId, sheetName);
@@ -232,26 +224,8 @@ class GoogleSheetsService {
         const today = new Date().toISOString().split('T')[0];
         const isToday = date === today;
 
-        // 오늘이 아닌 경우에만 기존 데이터 확인
-        if (!isToday) {
-          const existingData = await this.sheets.spreadsheets.values.get({
-            spreadsheetId: this.spreadsheetId,
-            range: `${sheetName}!C${rowIndex}:F${rowIndex}`,
-          });
-
-          // 데이터가 있으면 건너뛰기
-          if (existingData.data.values && existingData.data.values.length > 0) {
-            const row = existingData.data.values[0];
-            const hasData = row.some(cell => cell && cell.toString().trim() !== '');
-            
-            if (hasData) {
-              console.log(`${sheetName} 시트 ${dayNum}일 데이터가 이미 존재함 - 건너뛰기`);
-              return;
-            }
-          }
-        } else {
-          console.log(`${sheetName} 시트 ${dayNum}일 오늘 날짜 - 기존 데이터 갱신 진행`);
-        }
+        // 기존 데이터가 있어도 항상 업데이트 진행
+        console.log(`${sheetName} 시트 ${dayNum}일 데이터 업데이트 진행`);
 
         // 숫자로 변환하여 수식 적용이 가능하도록 함
         const values = [
