@@ -57,4 +57,4 @@ jspm_packages/
 
 # OS
 .DS_Store
-Thumbs.db 
+Thumbs.db config/mykey.json
