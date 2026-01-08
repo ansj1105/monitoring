@@ -1,0 +1,13 @@
+{
+  "type": "service_account",
+  "project_id": "solid-ego-468400-c9",
+  "private_key_id": "8c7781c7f88f4d674fd712756b8b96aa8059bf2f",
+  "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvwIBADANBgkqhkiG9w0BAQEFAASCBKkwggSlAgEAAoIBAQDbu5DwXOZXss/O\n55FhM05rlhJTaLB9eLLqDY2fjrK0tcXZYbxlgdpjUkLgSndGgCDiFc1pK4tDPsJG\n6ewIkF5d1bVn7UFEr3DNZGnA3WPb0CrRJMAFHuaPSh4ddVxEASzDPBc5O0aKQ3sL\nrfzLke/Un2Uw1tOF5y3A8Ypx2o8DdIwo1hkfsv0Lf5vPkQ7YZPz9MRiUyXX9AH69\nNrr/e3l3BbQaYW4KdgDlBAw+Tkgki172pab306krsxPwqlylLhdbL+W1KuFUqA+7\nzy34nNIcpk7LtGiDwY8yWorjfMcKoRFqAYwZ9o87KE/x0I4+YwO6JjumeJgp7AB5\nHi72pBn9AgMBAAECggEAGBtyfI8nWGIjqXwUzPi6Nv8ugIcrrIBkWghloXv1lZzx\nxCE/GwCNoLhNjQUDzrDPqsOglylyAc0uDGYCrDKGn+iKmrMte3x8tZQO2Ybl5fUR\n6tiLgU78FabDOhEpBRmp5buUgrDC/aKx/7yKz8dxlr7BdS5vONwoVBL2pk9ybFBA\n5ipLtQmdy5EPDB4N4D3kIuwWO22odH93tubpDr27oH75xzSIPB816wA4JYNYiPUQ\ncKT2o8P8LQSdILtZEjSGG58n59VIlxC154SYuNC2Ib7Ap2Sjnf9eD/WOnJLWjvVG\n8mqwo5polMdfJUriP1UIPxGDknu9unjsZdj1CANKYwKBgQDtpZ9+i4FM5u9IazMP\nqeZmwf8sxbJFftVDzwQ4DNLIA6pb9iuiVteBVdFl4vxoidDBFY3kUIEWn67x8/eU\nVHvvMws5sldlPOj3TYeQFETqpqy81nsEiZJYunIbmaUreY5FiY512dgLT7oXhyh7\nzbz58j8tzOF83tWdTXwM8aE3iwKBgQDss8U9HKpPIfnOFW9drrCPyBo7oIYzlDRl\nipuj5mys1nCJbdKWN/rIa/ZulhvIdnfwjn6a0/7T21T6jhbClkTgYSjufAQZWxrU\np/DRLU+CZmDhGEowfSASqyrz4rjxHO0zpm17szhKx7cd37E+n4FvLxYI5SgJquYZ\n0nY+QTfllwKBgQDLaoZgSkdOLSpKob/eO37FHG8wwrQ6ujsQRMYGuCtAG6sZ9lgZ\nKB5lTbDkdmu5i6XNcIa5FJO6asrTvhGAvOQstlN4eohGVuHOtWVBVag79plLNoes\nNZm4Kzd7GoP/95dpPDpd9C7yV7chZoanmk6U399mc8XbHd5ZPDbf2YA2ywKBgQCh\nQqSIywO4n9QZs/7IW2BMxK4im21yrHC6ESGSG0VEx1+qMVj8IK1JaExe8QOCojt6\ndwoIH5AH8/DENpOJBGluWKNTPshoIep4oOXvDKiTlX5BPJQmzshQD69Wssr+8Y8k\n1ijW0rXyNHgr8R9HI9JB1llzu/N4CqdzRjBqn3IehwKBgQDeeb2aDXg3/E57Pwb6\nvK6Gv+V2PgM8GgsAwmuHph4LJPrweLaIt2hm5DVjCDAPSyyPG3YYkOikMhC5VJ4I\n+TTCFnIhenWOh9iVUEzOJ14v7XPew47g+edPVxkcQ8x8P0A31TT5eLOEx0+NRYub\nb4l7m2bZVZEZd1N8xIlOAK7BMA==\n-----END PRIVATE KEY-----\n",
+  "client_email": "member-monitoring@solid-ego-468400-c9.iam.gserviceaccount.com",
+  "client_id": "118097910888672928409",
+  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  "token_uri": "https://oauth2.googleapis.com/token",
+  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/member-monitoring%40solid-ego-468400-c9.iam.gserviceaccount.com",
+  "universe_domain": "googleapis.com"
+}
