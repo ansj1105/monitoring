@@ -1,5 +1,6 @@
 const { google } = require('googleapis');
 const moment = require('moment-timezone');
+const { loadGoogleServiceAccount } = require('../config/googleAuth');
 
 class GoogleSheetsService {
   constructor() {
@@ -34,9 +35,10 @@ class GoogleSheetsService {
   // Google Sheets 인증 초기화
   async initializeAuth() {
     try {
+      const credentials = loadGoogleServiceAccount();
       const auth = new google.auth.GoogleAuth({
-        keyFile: process.env.GOOGLE_SERVICE_ACCOUNT_KEY_FILE,
         scopes: ['https://www.googleapis.com/auth/spreadsheets'],
+        ...(credentials ? { credentials } : {}),
       });
 
       this.auth = auth;

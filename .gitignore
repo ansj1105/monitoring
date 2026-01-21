@@ -12,7 +12,6 @@ yarn-error.log*
 .env.production.local
 
 # Secrets (service account keys etc.)
-.config/mykey.json
 
 # Logs
 logs
