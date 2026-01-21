@@ -119,6 +119,67 @@ class GoogleSheetsService {
     }
   }
 
+  isValidDateString(value) {
+    return typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value);
+  }
+
+  async getDatasetDates() {
+    if (!this.sheets || !this.spreadsheetId) {
+      throw new Error('Google Sheets API가 초기화되지 않았습니다.');
+    }
+
+    const existingData = await this.sheets.spreadsheets.values.get({
+      spreadsheetId: this.spreadsheetId,
+      range: 'dataset!A:A',
+    });
+
+    const rows = existingData.data.values || [];
+    const dates = [];
+
+    for (let i = 1; i < rows.length; i++) {
+      const dateValue = rows[i][0];
+      if (this.isValidDateString(dateValue)) {
+        dates.push(dateValue);
+      }
+    }
+
+    return dates;
+  }
+
+  async getMissingDatasetDates(endDate, startDate = null) {
+    const dates = await this.getDatasetDates();
+    if (dates.length === 0) {
+      return [];
+    }
+
+    const dateSet = new Set(dates.filter(date => this.isValidDateString(date)));
+    const sortedDates = Array.from(dateSet).sort();
+    const start = startDate || sortedDates[0];
+    const end = endDate || sortedDates[sortedDates.length - 1];
+
+    if (!this.isValidDateString(start) || !this.isValidDateString(end)) {
+      return [];
+    }
+
+    const startMoment = moment.tz(start, 'Asia/Seoul');
+    const endMoment = moment.tz(end, 'Asia/Seoul');
+    if (startMoment.isAfter(endMoment, 'day')) {
+      return [];
+    }
+
+    const missingDates = [];
+    const cursor = startMoment.clone();
+    while (cursor.isSameOrBefore(endMoment, 'day')) {
+      const dateStr = cursor.format('YYYY-MM-DD');
+      if (!dateSet.has(dateStr)) {
+        missingDates.push(dateStr);
+      }
+      cursor.add(1, 'day');
+    }
+
+    return missingDates;
+  }
+
   // dataset 시트 업데이트 - 재시도 정책 포함
   async updateDatasetSheet(date, data) {
     const maxRetries = 3;

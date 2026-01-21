@@ -4,8 +4,49 @@ const GoogleSheetsService = require('../services/sheets');
 const pool = require('../config/database');
 const { queries } = require('../models/queries');
 const cron = require('node-cron');
+const moment = require('moment-timezone');
 
 const sheetsService = new GoogleSheetsService();
+const EMPTY_DAILY_DATA = {
+  total_integrated_users: 0,
+  new_integrated_users: 0,
+  converted_integrated_users: 0,
+  physical_card_requests: 0,
+  online_auto_issued_cards: 0
+};
+
+function getKstDateString(date = new Date()) {
+  return moment(date).tz('Asia/Seoul').format('YYYY-MM-DD');
+}
+
+function getKstYesterdayString(date = new Date()) {
+  return moment(date).tz('Asia/Seoul').subtract(1, 'day').format('YYYY-MM-DD');
+}
+
+async function fetchDailyIntegrationData(dateStr) {
+  const query = queries.getDailyIntegrationData(dateStr);
+  let result;
+  let retryCount = 0;
+  const maxRetries = 3;
+
+  while (retryCount < maxRetries) {
+    try {
+      result = await pool.query(query.text, query.values);
+      return result.rows[0] || EMPTY_DAILY_DATA;
+    } catch (dbError) {
+      retryCount++;
+      console.log(`데이터베이스 연결 시도 ${retryCount}/${maxRetries} 실패:`, dbError.message);
+
+      if (retryCount >= maxRetries) {
+        throw dbError;
+      }
+
+      await new Promise(resolve => setTimeout(resolve, 5000));
+    }
+  }
+
+  return EMPTY_DAILY_DATA;
+}
 
 // Google Sheets 헤더 설정
 router.post('/setup-headers', async (req, res) => {
@@ -125,16 +166,50 @@ let autoUpdateJob = null;
 let dailyCheckJob = null;
 
 // 자동 업데이트 시작
-router.post('/start-auto-update', (req, res) => {
+router.post('/start-auto-update', async (req, res) => {
   try {
     if (autoUpdateJob) {
       return res.json({ message: '자동 업데이트가 이미 실행 중입니다.' });
     }
+
+    const now = new Date();
+    const yesterdayStr = getKstYesterdayString(now);
+
+    try {
+      const existingDates = await sheetsService.getDatasetDates();
+      let missingDates = [];
+
+      if (existingDates.length === 0) {
+        missingDates = [yesterdayStr];
+      } else {
+        missingDates = await sheetsService.getMissingDatasetDates(yesterdayStr);
+      }
+
+      if (missingDates.length > 0) {
+        console.log(`누락된 날짜 발견: ${missingDates.join(', ')}`);
+        for (const dateStr of missingDates) {
+          const dataToUpdate = await fetchDailyIntegrationData(dateStr);
+          await sheetsService.updateDailyData(dateStr, dataToUpdate);
+        }
+      } else {
+        console.log('누락된 날짜 없음');
+      }
+    } catch (error) {
+      console.error('누락 날짜 점검 실패:', error);
+    }
+
+    try {
+      const todayStr = getKstDateString(now);
+      const dataToUpdate = await fetchDailyIntegrationData(todayStr);
+      await sheetsService.updateDailyData(todayStr, dataToUpdate);
+    } catch (error) {
+      console.error('자동 업데이트 시작 시 오늘 데이터 업데이트 실패:', error);
+    }
     
-    // 매시간 39분에 실행 (오늘 데이터 업데이트)
+    // 매시간 59분에 실행 (오늘 데이터 업데이트)
     autoUpdateJob = cron.schedule('59 */1 * * *', async () => {
       const now = new Date();
-      const todayStr = now.toISOString().split('T')[0];
+      const todayStr = getKstDateString(now);
       
       console.log(`=== 자동 업데이트 시작 (오늘 데이터) ===`);
       console.log(`업데이트 날짜: ${todayStr}`);
@@ -197,9 +272,7 @@ router.post('/start-auto-update', (req, res) => {
     // 매일 1시에 전날 데이터 점검 및 재업데이트
     dailyCheckJob = cron.schedule('0 1 * * *', async () => {
       const now = new Date();
-      const yesterday = new Date(now);
-      yesterday.setDate(yesterday.getDate() - 1);
-      const yesterdayStr = yesterday.toISOString().split('T')[0];
+      const yesterdayStr = getKstYesterdayString(now);
       
       console.log(`=== 전날 데이터 점검 시작 ===`);
       console.log(`점검 날짜: ${yesterdayStr} (전날)`);
@@ -259,7 +332,7 @@ router.post('/start-auto-update', (req, res) => {
       }
     });
 
-    res.json({ message: '자동 업데이트가 시작되었습니다. (매시간 39분에 오늘 데이터 업데이트, 매일 1시에 전날 데이터 점검)' });
+    res.json({ message: '자동 업데이트가 시작되었습니다. (매시간 59분에 오늘 데이터 업데이트, 매일 1시에 전날 데이터 점검)' });
   } catch (error) {
     console.error('자동 업데이트 시작 실패:', error);
     res.status(500).json({ error: '자동 업데이트 시작 중 오류가 발생했습니다.' });
@@ -272,7 +345,7 @@ router.get('/auto-update-status', (req, res) => {
     const isRunning = autoUpdateJob !== null || dailyCheckJob !== null;
     const now = new Date();
     const nextHourlyRun = autoUpdateJob ? 
-      `다음 시간별 실행: ${now.getHours()}:39 (${now.getMinutes() >= 39 ? '내일' : '오늘'})` : 
+      `다음 시간별 실행: ${now.getHours()}:59 (${now.getMinutes() >= 59 ? '내일' : '오늘'})` : 
       '시간별 업데이트 중지됨';
     const nextDailyRun = dailyCheckJob ? 
       `다음 일별 점검: 내일 01:00` : 
@@ -281,7 +354,7 @@ router.get('/auto-update-status', (req, res) => {
     res.json({ 
       isRunning: isRunning,
       message: isRunning ? '자동 업데이트가 실행 중입니다.' : '자동 업데이트가 중지되었습니다.',
-      schedule: '매시간 39분에 오늘 데이터 업데이트, 매일 1시에 전날 데이터 점검',
+      schedule: '매시간 59분에 오늘 데이터 업데이트, 매일 1시에 전날 데이터 점검',
       nextHourlyRun: nextHourlyRun,
       nextDailyRun: nextDailyRun,
       currentTime: now.toLocaleString()
@@ -296,7 +369,7 @@ router.get('/auto-update-status', (req, res) => {
 router.post('/update-now', async (req, res) => {
   try {
     const now = new Date();
-    const dateStr = now.toISOString().split('T')[0];
+    const dateStr = getKstDateString(now);
     
     console.log(`수동 업데이트 시작: ${dateStr} ${now.toLocaleTimeString()}`);
     
